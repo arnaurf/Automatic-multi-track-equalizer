@@ -1,7 +1,7 @@
 clear all; 
 tic
 
-
+%testing editing from gitHub web interface
 %Init variables
 nF = 10; %number of filters EQ
 
