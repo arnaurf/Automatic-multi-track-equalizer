@@ -1,6 +1,6 @@
 function output = selectMasking(M, nF)
 
-output = max(squeeze(M))
+output = max(squeeze(M), [], 1);
 
 % for i = 1:size(M, 2)
 %     masking(i) = max(M(1,:,i));

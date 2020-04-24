@@ -1,118 +1,113 @@
 clear all; 
-tic
-
-%% Init variables
-nF = 10; %number of filters EQ
-fc(1) = 1;
-for n = 1:nF
-    filter_d(n).gain = 0; %+dB iniciales
-    filter_d(n).center = 31.25*2.^(n-1); 
-    fc(n+1) = 31.25*2.^(n-1);
-end
-
-
-Q = 2;
-alpha = 0;
-aF = 10; %number of analisis bands (bins)
+%% %%%%%%% INIT VARIABLES
+% WINDOW & OVERLAP
 winSize = 1024; %window size
-Rt = 3; %max Rank
 overlapR = 0.5; %overlap %
+overlapSamples = ceil(overlapR*winSize);
+stepL = winSize - overlapSamples;
 
-%%%%%%%%%%%% FEATURE EXTRACTION
-%% Load audios
+% LOAD AUDIOS -> loadAudios(directory, winSize, overlapR, t0, tf)
+x_original = loadAudios("audios", winSize, overlapR, 60, 65); %t0 and tf optionals
 
-files = dir("audios");
-j = 1;
-for i = 1:size(files, 1) %reading all files on "audios" folder
-    if files(i).isdir == 0
-        [tracks(j).samples, tracks(j).fs] = audioread("audios/"+string(files(i).name));
-        tracks(j).samples = tracks(j).samples(9500000:10000000, :); %read only a section of the audio
-        tracks(j).samples(end:ceil(size(tracks(j).samples,1)/1024)*1024+winSize*overlapR, :) = 0; %Fill input with 0 to fit all windows
-        
-        tracks(j).name = files(i).name;
-        
-        tracksFilt(j).samples = zeros(size(tracks(j).samples,1)+winSize*overlapR,1); %create empty output
-        
-        if(size(tracks(j).samples, 2) > 1) %Stereo to mono
-            tracks(j).samples = sum(tracks(j).samples, 2)/size(tracks(j).samples, 2);
-        end
-        j = j + 1;
-    end    
+nTracks = size(x_original, 1);
+Length = size(x_original.samples{1},2);
+fs = x_original.fs{1};
+
+y_filtered = zeros(nTracks, Length); %create empty output
+
+% INIT FILTER
+Q = 2;
+nF = 10; %number of filters EQ
+aF = 10; %number of analisis bands (bins)
+fc = 31.25*2.^(0:10-1);
+filter = table(zeros(nTracks, nF)+fc, zeros(nTracks, nF), 'VariableNames', ["center", "gain"]);
+fc = [1,fc, fs/2-1];
+
+%butterworth fiter at fc(iband)
+%b = zeros(length(fc), 5); a = b;
+for iband=2:length(fc)-1
+    fcs = [fc(iband-1), fc(iband+1)] ./ (fs/2);  
+    fcs(2) = min(fc(2),0.9999);
+    [b(iband-1,:),a(iband-1,:)] = butter(2,fcs,'bandpass'); 
 end
 
-nTracks = size(tracks, 2);
-fs = tracks(1).fs;
-fc(length(fc)+1) = fs/2-1;
-%% for each frame of size winSize
+% OTHER VARIABLES
+Rt = 3; %max Rank
 W = hamming(winSize);
-frame = 1;
-w_pos = 1;
-while w_pos <= size(tracks(1).samples, 1)-winSize*overlapR
+alpha = 0; %alpha value for EMA smoothing
+
+% EMPTY FRAME VARIABLE
+frame = table(zeros(nTracks, winSize), zeros(nTracks, nF), zeros(nTracks, nF));
+frame.Properties.VariableNames = ["Samples", "MagRes", "Rank"];
+
+
+%% MAIN LOOP: for each frame of size winSize
+nframe = 1;
+winPos = 1;
+last_t = clock;
+tic
+while winPos <= Length-winSize
+    
     %Read frame for each track
-    for i = 1:nTracks
-        tracksFrame(i).samples = tracks(i).samples(w_pos:w_pos+winSize-1).*W; 
+    for iTrack = 1:nTracks
+        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1).*W'; %read frame
         
         %%%%%%%%%%%% FEATURES EXTRACTION
-        tracksFrame(i).MagRes = getMagRes(tracksFrame(i).samples, fc, fs);
-        tracksFrame(i).Rank = getRank(tracksFrame(i).MagRes, aF);
+        MagRes = getMagRes(samples, b,a);        %get Magnitude of each band
+        Rank = getRank(MagRes, aF)';                %get Ranking of most important bands on the frame
+        frame(iTrack,:) = table(samples, MagRes, Rank);  %save it on a table
     end
     
 
-%% %%%%%%%%%%%%%%%%%%% MASKING DETECTION
-    masking = zeros(nTracks, nTracks, nF);
-    for masker = 1:nTracks
-        for maskee = 1:nTracks
-            if masker ~= maskee
-                
-                for i_band = 1:nF
-                    if (tracksFrame(maskee).Rank(i_band) <= Rt) && (Rt < tracksFrame(masker).Rank(i_band))
-                        masking(masker, maskee, i_band) = tracksFrame(masker).MagRes(i_band) - tracksFrame(maskee).MagRes(i_band);
+%%%%%%%%%%%%%%%%%%%%% MASKING DETECTION
+    masking(1).M = zeros(nTracks, nF); %init masking table -> masking(Masker).M(Maskee, band)
+    
+    for i_masker= 1:nTracks %for each masker
+        for i_maskee = 1:nTracks %compare it with each possible maskee
+            if i_masker ~= i_maskee %avoid comparing with itself
+                for i_band = 1:nF %per each band
+                    if (frame.Rank(i_maskee,i_band) <= Rt) && (Rt < frame.Rank(i_masker, i_band)) %Equation (1) on reference 1
+                        masking(i_masker).M(i_maskee, i_band) = frame.MagRes(i_masker,i_band) - frame.MagRes(i_maskee,i_band);
                     else
-                        masking(masker, maskee, i_band) = 0;
+                        masking(i_masker).M(i_maskee, i_band) = 0;
                     end
                 end
-                
-            end
+            else %if i_masker = i_maskee, do:
+                masking(i_masker).M(i_maskee, :) = zeros(1, nF);
+            end %end if
         end
     end
     
 %%%%%%%%%%%%% MASKING SELECTION
 
-    for masker = 1:nTracks
-        %Get max masking for the current masker
-        Mask = selectMasking(masking(masker,:,:), nF); 
+    for i_masker = 1:nTracks %for each masker
         
-        %Smoothing
-        for Fbin = 1:nF
-            if(Mask(Fbin) ~= 0)
-                tracksFrame(masker).filterM(Fbin) = EMA(Mask(Fbin), filter_d(Fbin).gain, alpha);
-                %For now we have 10 fixed filter centers
-                %tracksFrame(masker).filterCenter = EMA(center(Fbin), filter_d(Fbin).center, alpha);
+        %Get max masking for the current masker on each band
+        Mask = selectMasking(masking(i_masker).M, nF); 
+        
+        %Smoothing between frames to avoid artefacts
+        for i_bin = 1:nF
+            if(Mask(i_bin) ~= 0)
+                filter.gain(i_masker,i_bin) = EMA(Mask(i_bin), filter.gain(i_masker,i_bin), alpha);
+                %For now we have 10 fixed filter centers, no need to smooth
+                %filter.center = EMA(center(i_bin), filter.center(i_bin), alpha);
             else
-                tracksFrame(masker).filterM(Fbin) = 0;
-                %tracksFrame(masker).filterCenter(Fbin) = 0;
+                filter.gain(i_bin) = 0;
+                %filter.center(i_bin) = 0;
             end
         end
         
     end
     
-    %%%%%%%%%%%%%%%% FILTERING
-    y = zeros(nF, size(tracksFrame(1).samples, 1));
-    for track = 1:size(tracksFrame, 2)
-        for i = 1:nF
-            %[num,den] = iirpeak(filter_d(i).center/fs*2,(tracksFilt(i).center+tracksFilt(i).center/(Q*2))/fs*2);
-            %[num,den] = iirpeak(0.0013,0.0014);
-            %Y = filter(num, den, tracksFrame(track).samples);
-            %y(i, :) =   Y; %tracksFrame(track).samples;%;%cv(1:winSize); %
-        end
-        %sorry about that
-        [a(1), a(2), a(3), a(4), a(5), a(6), a(7), a(8), a(9), a(10)] = filter_d(1:10).center;
+%%%%%%%%%%%%%%%% FILTERING
+    frame_filtered = zeros(nF, winSize); %init empty filtered frame variable
+    for i_track = 1:nTracks
         
-        %EQ   eq_filter(x, fc, Q, winSize, fs)
-        y = eq_filter(tracksFrame(track).samples, a, zeros(1, 10)+Q, tracksFrame(track).filterM(1:10).*(-1), fs);
+        %EQUALIZE   eq_filter(x, fc, Q, winSize, fs)
+        frame_filtered = eq_filter(frame.Samples(i_track,:), filter.center(i_track,:), zeros(1, 10)+Q, filter.gain(i_track,:).*(-1), fs);
         
         %Sum the overlapping part of samples with new ones
-        tracksFilt(track).samples(w_pos:w_pos+winSize-1) = [tracksFilt(track).samples(w_pos:w_pos+winSize*overlapR-1); zeros(winSize*(1-overlapR), 1)]' + y'; %[tracksFilt(track).samples, y];
+        y_filtered(i_track,winPos:winPos+winSize-1) = [y_filtered(i_track,winPos:winPos+overlapSamples-1), zeros(1, stepL)] + frame_filtered;
     end
 
     % First frame alpha is 0.
@@ -120,29 +115,37 @@ while w_pos <= size(tracks(1).samples, 1)-winSize*overlapR
         alpha = exp(-1/(2*fs));
     end
     
-    w_pos = w_pos + winSize*(1-overlapR);
-    frame =  frame+1;
-    fprintf("Frame %i/%i\n",frame, size(tracks(1).samples, 1)/winSize/(1-overlapR));
+    winPos = winPos + stepL;
+    nframe =  nframe+1;
+    if etime(clock,last_t) >= 1
+        fprintf("Frame %i/%i, %.2f%% \n",nframe, ceil(Length/stepL), nframe/ceil(Length/stepL)*100 );
+        last_t = clock;
+    end
 end
-toc
-
+t = toc;
+fprintf("Elapsed time is %f seconds, performance: %fx\n", t, Length/fs/t);
 %% Normalize
-for i = 1:nTracks
-    tracksFilt(i).samples = tracksFilt(i).samples/max(tracksFilt(i).samples)*0.8; %0.8 because want to be sure
-end
+% for i = 1:nTracks
+%     tracksFilt(i).samples = tracksFilt(i).samples/max(tracksFilt(i).samples)*0.8; %0.8 because want to be sure
+% end
 
 
 %% WRITE AUDIOS
 for i = 1:nTracks
-    audiowrite("audios_rendered/FILT-"+tracks(i).name+".wav", real(tracksFilt(i).samples), fs);
+    audiowrite("audios_rendered/FILT-"+x_original.fileName{i}, real(y_filtered(i,:)), fs);
 end
 
 for i = 1:nTracks %Rewrite original audios bc it could have been cut
-    audiowrite("audios_rendered/ORIG-"+tracks(i).name+".wav", real(tracks(i).samples), fs);
+    audiowrite("audios_rendered/ORIG-"+x_original.fileName{i}, real(x_original.samples{i,:}), fs);
 end
 
 %%
-sound(real(tracksFilt(1).samples), fs)
+sound(real(y_filtered(1,:)), fs);
 
 %%
 clear sound
+
+%% %%%%%%%%%%%%  REFERENCES  %%%%%%%%%%%%%
+% [1] Hafezi, S., & Reiss, J. (2015). Autonomous Multitrack Equalization Based on Masking Reduction. Journal of the Audio Engineering Society, 63(5), 312–323. doi: 10.17743/jaes.2015.0021
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
