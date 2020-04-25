@@ -27,7 +27,7 @@ fc = [1,fc, fs/2-1];
 %b = zeros(length(fc), 5); a = b;
 for iband=2:length(fc)-1
     fcs = [fc(iband-1), fc(iband+1)] ./ (fs/2);  
-    fcs(2) = min(fc(2),0.9999);
+    fcs(2) = min(fcs(2),0.9999);
     [b(iband-1,:),a(iband-1,:)] = butter(2,fcs,'bandpass'); 
 end
 
@@ -53,27 +53,27 @@ while winPos <= Length-winSize
         samples = x_original.samples{iTrack}(winPos:winPos+winSize-1).*W'; %read frame
         
         %%%%%%%%%%%% FEATURES EXTRACTION
-        MagRes = getMagRes(samples, b,a);        %get Magnitude of each band
+        MagRes = getMagRes(samples, b, a);        %get Magnitude of each band
         Rank = getRank(MagRes, aF)';                %get Ranking of most important bands on the frame
         frame(iTrack,:) = table(samples, MagRes, Rank);  %save it on a table
     end
     
 
 %%%%%%%%%%%%%%%%%%%%% MASKING DETECTION
-    masking(1).M = zeros(nTracks, nF); %init masking table -> masking(Masker).M(Maskee, band)
-    
+
+    M = cell(nTracks);
     for i_masker= 1:nTracks %for each masker
         for i_maskee = 1:nTracks %compare it with each possible maskee
             if i_masker ~= i_maskee %avoid comparing with itself
                 for i_band = 1:nF %per each band
-                    if (frame.Rank(i_maskee,i_band) <= Rt) && (Rt < frame.Rank(i_masker, i_band)) %Equation (1) on reference 1
-                        masking(i_masker).M(i_maskee, i_band) = frame.MagRes(i_masker,i_band) - frame.MagRes(i_maskee,i_band);
+                    if (frame.Rank(i_maskee,i_band) <= Rt) && (Rt < frame.Rank(i_masker, i_band)) %Equation (1) on reference [1]
+                        M{i_masker, i_maskee}(i_band) = frame.MagRes(i_masker,i_band) - frame.MagRes(i_maskee,i_band);
                     else
-                        masking(i_masker).M(i_maskee, i_band) = 0;
+                        M{i_masker, i_maskee}(i_band) = 0;
                     end
                 end
             else %if i_masker = i_maskee, do:
-                masking(i_masker).M(i_maskee, :) = zeros(1, nF);
+                 M{i_masker, i_maskee} = zeros(1, nF);
             end %end if
         end
     end
@@ -83,7 +83,7 @@ while winPos <= Length-winSize
     for i_masker = 1:nTracks %for each masker
         
         %Get max masking for the current masker on each band
-        Mask = selectMasking(masking(i_masker).M, nF); 
+        Mask = selectMasking(cell2mat(M(i_masker,:)'), nF); 
         
         %Smoothing between frames to avoid artefacts
         for i_bin = 1:nF
@@ -92,8 +92,8 @@ while winPos <= Length-winSize
                 %For now we have 10 fixed filter centers, no need to smooth
                 %filter.center = EMA(center(i_bin), filter.center(i_bin), alpha);
             else
-                filter.gain(i_bin) = 0;
-                %filter.center(i_bin) = 0;
+                filter.gain(i_masker,i_bin) = 0;
+                %Deberiamos hacer EMA? EMA(0, filter.gain(i_masker,i_bin), alpha);
             end
         end
         
