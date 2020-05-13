@@ -1,0 +1,2 @@
+Here your processed audios will be placed. The audios will be tagged with "ORIG" or "FILT".
+A copy of the original audio is made because you can choose to cut the audio, so a copy of the same length of the filtered audio is made.
