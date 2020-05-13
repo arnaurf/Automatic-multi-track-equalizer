@@ -146,6 +146,6 @@ sound(real(y_filtered(1,:)), fs);
 clear sound
 
 %% %%%%%%%%%%%%  REFERENCES  %%%%%%%%%%%%%
-% [1] Hafezi, S., & Reiss, J. (2015). Autonomous Multitrack Equalization Based on Masking Reduction. Journal of the Audio Engineering Society, 63(5), 312–323. doi: 10.17743/jaes.2015.0021
+% [1] Hafezi, S., & Reiss, J. (2015). Autonomous Multitrack Equalization Based on Masking Reduction. Journal of the Audio Engineering Society, 63(5), 312â€“323. doi: 10.17743/jaes.2015.0021
 % 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
