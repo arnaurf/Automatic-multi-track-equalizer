@@ -7,7 +7,7 @@ overlapSamples = ceil(overlapR*winSize);
 stepL = winSize - overlapSamples;
 
 % LOAD AUDIOS -> loadAudios(directory, winSize, overlapR, t0, tf)
-x_original = loadAudios("audios", winSize, overlapR); %t0 and tf optionals
+x_original = loadAudios("audios", winSize, overlapR, 60,65); %t0 and tf optionals
 
 nTracks = size(x_original, 1);
 Length = size(x_original.samples{1},2);
