@@ -1,0 +1,38 @@
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2019
+
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MTEqualizer - Standalone Plugin", "MTEqualizer_StandalonePlugin.vcxproj", "{EFEE7602-5298-B78E-983B-8A2948265B24}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B} = {FC410846-2D96-5C41-2973-A8ECE8F5CE6B}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MTEqualizer - VST3", "MTEqualizer_VST3.vcxproj", "{9E0097C5-1431-3970-1394-A34B8B55DE8D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B} = {FC410846-2D96-5C41-2973-A8ECE8F5CE6B}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MTEqualizer - Shared Code", "MTEqualizer_SharedCode.vcxproj", "{FC410846-2D96-5C41-2973-A8ECE8F5CE6B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9E0097C5-1431-3970-1394-A34B8B55DE8D}.Debug|x64.ActiveCfg = Debug|x64
+		{9E0097C5-1431-3970-1394-A34B8B55DE8D}.Debug|x64.Build.0 = Debug|x64
+		{9E0097C5-1431-3970-1394-A34B8B55DE8D}.Release|x64.ActiveCfg = Release|x64
+		{9E0097C5-1431-3970-1394-A34B8B55DE8D}.Release|x64.Build.0 = Release|x64
+		{EFEE7602-5298-B78E-983B-8A2948265B24}.Debug|x64.ActiveCfg = Debug|x64
+		{EFEE7602-5298-B78E-983B-8A2948265B24}.Debug|x64.Build.0 = Debug|x64
+		{EFEE7602-5298-B78E-983B-8A2948265B24}.Release|x64.ActiveCfg = Release|x64
+		{EFEE7602-5298-B78E-983B-8A2948265B24}.Release|x64.Build.0 = Release|x64
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B}.Debug|x64.ActiveCfg = Debug|x64
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B}.Debug|x64.Build.0 = Debug|x64
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B}.Release|x64.ActiveCfg = Release|x64
+		{FC410846-2D96-5C41-2973-A8ECE8F5CE6B}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
