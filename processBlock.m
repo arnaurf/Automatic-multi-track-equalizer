@@ -2,7 +2,7 @@ clear all;
 %% %%%%%%% INIT VARIABLES
 % WINDOW & OVERLAP
 winSize = 1024; %window size
-overlapR = 0.5; %overlap %
+overlapR = 0; %overlap %
 overlapSamples = ceil(overlapR*winSize);
 stepL = winSize - overlapSamples;
 
@@ -50,7 +50,7 @@ while winPos <= Length-winSize
     
     %Read frame for each track
     for iTrack = 1:nTracks
-        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1).*W'; %read frame
+        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1);%.*W'; %read frame
         
         %%%%%%%%%%%% FEATURES EXTRACTION
         MagRes = getMagRes(samples, b, a);        %get Magnitude of each band
