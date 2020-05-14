@@ -92,7 +92,7 @@ while winPos <= Length-winSize
                 %For now we have 10 fixed filter centers, no need to smooth
                 %filter.center = EMA(center(i_bin), filter.center(i_bin), alpha);
             else
-                filter.gain(i_masker,i_bin) = 0;
+                filter.gain(i_masker,i_bin) = EMA(0, filter.gain(i_masker,i_bin), alpha);
                 %Deberiamos hacer EMA? EMA(0, filter.gain(i_masker,i_bin), alpha);
             end
         end
@@ -112,7 +112,7 @@ while winPos <= Length-winSize
 
     % First frame alpha is 0.
     if(alpha == 0)
-        alpha = exp(-1/(2*fs));
+        alpha = 0.5;%exp(-1/(2*fs));
     end
     
     winPos = winPos + stepL;
