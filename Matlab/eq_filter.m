@@ -14,19 +14,14 @@ Qfact = Q(nozero);
 
 %Cascade filters
 [B, A] = peakFilter(centers(1), Qfact(1), fs, magnitude(1));
+y = filter(B,A,x);
 for i=2:length(nozero)
     [B2, A2] = peakFilter(centers(i), Qfact(i), fs, magnitude(i));
-    B = conv(B,B2); %Cascade filters
-    A = conv(A,A2);     
+    y = filter(B2,A2,y);  
 end
 %%%%%%%% Visualize filter
 %visualizeFilter(B,A,fs);
 %%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%% FORCE A HIGH-PASS FILTER. It still creates artefacts :( WHY?
-%[B,A] = butter(6, 100/(fs/2),'high'); 
-
-y = filter(B,A,x);
 
 end
 

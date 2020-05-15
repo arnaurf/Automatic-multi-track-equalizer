@@ -33,7 +33,7 @@ end
 
 % OTHER VARIABLES
 Rt = 3; %max Rank
-W = hamming(winSize);
+W = hanning(winSize);
 alpha = 0; %alpha value for EMA smoothing
 
 % EMPTY FRAME VARIABLE
@@ -50,7 +50,7 @@ while winPos <= Length-winSize
     
     %Read frame for each track
     for iTrack = 1:nTracks
-        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1);%.*W'; %read frame
+        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1); %read frame
         
         %%%%%%%%%%%% FEATURES EXTRACTION
         MagRes = getMagRes(samples, b, a);        %get Magnitude of each band
