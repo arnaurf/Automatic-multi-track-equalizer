@@ -22,6 +22,12 @@ float EMA(float x, float y0, float alpha) {
     return (1 - alpha) * x + alpha * y0;
 }
 
+void hanning(double* buffer, int size) {
+    for (int i = 0; i < size; i++) {
+        buffer[i] =  0.5 * (1 - cos(2 * M_PI * i / size));
+    }
+}
+
 double* filter2(double b[], double a[], const float* X, int sizeF, int sizeX) {
 
     //float* z = (float*)calloc(sizeX, sizeof(float));
@@ -140,6 +146,7 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
     this->nF = 10;
     this->aF = 10;
     this->nTracks = this->getBusCount(true);
+    this->firstFrame = true;
 
 
     //filter = (Filter*)malloc(sizeof(Filter) * nTracks * nF);
@@ -150,10 +157,7 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
 
     //buffers = new AudioBuffer<float>[nTracks];
     
-    for (int i = 0; i < 5; i++) {
-        AudioBuffer<float> aux = AudioBuffer<float>(2, winSize);
-        buffers.push_back(aux);
-    }
+
     
     float x[400];
     for (int i = 0; i < 400; i++) {
@@ -182,7 +186,7 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
         }
     }
 
-
+    
 }
 
 MtequalizerAudioProcessor::~MtequalizerAudioProcessor()
@@ -256,6 +260,29 @@ void MtequalizerAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+   
+    firstFrame = true;
+    mPrevBuffers.clear();
+    mPrevOverlapBuffers.clear();
+    mCurrOverlapBuffers.clear();
+    mCurrBuffers.clear();
+
+    for (int i = 0; i < nTracks; i++) {
+        mPrevBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
+        mPrevBuffers[i].clear();
+
+        mPrevOverlapBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
+        mPrevOverlapBuffers[i].clear();
+
+        mCurrOverlapBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
+        mCurrOverlapBuffers[i].clear();
+
+        mCurrBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
+        mCurrBuffers[i].clear();
+    }
+    window = new double[winSize];
+    hanning(window, winSize);
+    
 }
 
 void MtequalizerAudioProcessor::releaseResources()
@@ -354,49 +381,16 @@ void MtequalizerAudioProcessor::eqfilter(AudioBuffer<float>* buffer, float*input
 
 }
 
-void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
-{
-    ScopedNoDenormals noDenormals;
-    //auto totalNumInputChannels  = getTotalNumInputChannels();
-    //auto totalNumOutputChannels = getTotalNumOutputChannels();
-
+void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& buffers) {
     Track* track;
     track = new Track[nTracks];
-    this->winSize = buffer.getNumSamples();
 
-
-    //float* M = (float*)malloc(sizeof(float) * nTracks * nTracks * this->aF);
-    
-    //AudioBuffer<float>* buffers = (AudioBuffer<float>*) calloc(sizeof(AudioBuffer<float>), nTracks);
-    AudioBuffer<float> aux;
-    for (int i = 0; i < nTracks; i++) {
-        Bus* bus = getBus(true, i);
-        buffers[i] = (bus->getBusBuffer(buffer));
-    }
-
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = nTracks; i < nTracks; ++i)
-        buffer.clear(i, 0, buffer.getNumSamples());
-
-
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
     for (int channel = 0; channel < nTracks; ++channel) {
         track[channel].Samples = buffers[channel].getWritePointer(0);
-        auto* channelData = buffer.getReadPointer(0);
         getMagRes(track[channel].MagRes, buffers[channel].getReadPointer(0));
         getRank(track[channel].Rank, track[channel].MagRes);
     }//IT WORKS!
-    
+
     for (int masker = 0; masker < nTracks; ++masker) {
         for (int maskee = 0; maskee < nTracks; ++maskee) {
             if (masker != maskee) {
@@ -413,12 +407,12 @@ void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuf
             }
         }
     }
-    
+
     float* masking = (float*)malloc(sizeof(float) * aF);
     for (int i_masker = 0; i_masker < nTracks; i_masker++) {
         selectMasking(masking, M[i_masker]);
 
-         for (int i_bin = 0; i_bin < aF; i_bin++) {
+        for (int i_bin = 0; i_bin < aF; i_bin++) {
             if (masking[i_bin] != 0) {
                 //filter[i_masker][i_bin].gain = EMA(masking[i_bin], filter[i_masker][i_bin].gain, this->alpha);
                 filter[i_masker][i_bin].gain = masking[i_bin];
@@ -429,24 +423,86 @@ void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuf
         }
 
     }
-    
+
     for (int iTrack = 0; iTrack < nTracks; iTrack++) {
         eqfilter(&buffers[iTrack], track[iTrack].Samples, filter[iTrack], Q);
-        
+
         for (int idx = 0; idx < this->winSize; idx++) {
             for (int channel = 0; channel < 2; channel++) {
                 (buffers[iTrack].getWritePointer(channel))[idx] = track[iTrack].Samples[idx];
-                 //(buffers[iTrack]->getWritePointer(channel))[idx] = track[iTrack].Samples[idx];
+                //(buffers[iTrack]->getWritePointer(channel))[idx] = track[iTrack].Samples[idx];
             }
         }
     }
 
     if (!alpha)
         alpha = exp(-1 / (2 * this->getSampleRate()));
-    /*
-    for (int i = 0; i < buffer.getNumSamples(); i++) {
-        channelData[i] = buffer.getSample(channel, i) * 0;
-    }*/
+}
+
+
+void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
+{
+    ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels  = getTotalNumInputChannels();
+    //auto totalNumOutputChannels = getTotalNumOutputChannels();   
+    int totalChannels = 2;
+
+    this->winSize = buffer.getNumSamples();
+
+
+    //float* M = (float*)malloc(sizeof(float) * nTracks * nTracks * this->aF);
+
+    //AudioBuffer<float>* buffers = (AudioBuffer<float>*) calloc(sizeof(AudioBuffer<float>), nTracks);
+     
+    AudioBuffer<float> aux;
+     for (int i = 0; i < nTracks; i++) {
+        Bus* bus = getBus(true, i);
+        mCurrBuffers[i] = (bus->getBusBuffer(buffer));
+    }
+    
+ 
+    //Complete mOverlapBuffers
+    for (int i = 0; i < nTracks; i++) {
+        for (int channel = 0; channel < totalChannels; channel++) {
+            mCurrOverlapBuffers[i].copyFrom(channel, 0, mPrevBuffers[i], channel, winSize / 2, winSize / 2);
+            mCurrOverlapBuffers[i].copyFrom(channel, winSize / 2, mCurrBuffers[i], channel, 0, winSize / 2);
+        }
+    }
+   
+    reduceMasking(mCurrBuffers);
+    reduceMasking(mCurrOverlapBuffers);
+
+    
+    for (int i = 0; i < nTracks; i++) {
+
+        for (int channel = 0; channel < totalChannels; channel++) {
+
+            float aux;
+            /*for (int s = 0; s < winSize; s++) {
+                
+                mCurrBuffers[i].setSample(channel, s, mPrevBuffers[i].getSample(channel, s));
+                mPrevBuffers[i].setSample(channel, s, aux);
+            }
+            */
+            for (int s = 0; s < winSize; s++) { //Iterate all samples
+
+                aux = mCurrBuffers[i].getSample(channel, s);
+                if (s < winSize / 2)  //The first half, output = LastBuffer
+                    mCurrBuffers[i].setSample(channel, s, mPrevOverlapBuffers[i].getSample(channel, s + winSize / 2) * window[int(s + winSize / 2)] + mPrevBuffers[i].getSample(channel, s) * window[s]);
+
+                else   //The second half, output = second half of LastBuffer + first half of mOverlapBuffer
+                    mCurrBuffers[i].setSample(channel, s, mCurrOverlapBuffers[i].getSample(channel, s - winSize / 2) * window[int(s - winSize / 2)] + mPrevBuffers[i].getSample(channel, s) * window[s]);
+
+                mPrevBuffers[i].setSample(channel, s, aux);
+            }
+            
+
+            mPrevOverlapBuffers[i].copyFrom(channel, 0, mCurrOverlapBuffers[i], channel, 0, winSize);
+
+        }
+
+    }
+
 }
 
 //==============================================================================

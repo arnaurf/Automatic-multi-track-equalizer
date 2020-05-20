@@ -39,14 +39,20 @@ public:
     double a[50] = A_COEF;
     Filter** filter;
     float*** M;
+    bool firstFrame;
+    double* window;
 
     //AudioBuffer<float>* buffers;
-    std::vector<AudioBuffer<float>> buffers;
+    std::vector<AudioBuffer<float>> mCurrBuffers; //current buffers, real i/o bufers
+    std::vector<AudioBuffer<float>> mPrevBuffers; //last buffer (raw, unprecessed)
+    std::vector<AudioBuffer<float>> mCurrOverlapBuffers;  //second half of the last frame buffer, and first half of the current buffer
+    std::vector<AudioBuffer<float>> mPrevOverlapBuffers;
 
     void getMagRes(float MagRes[], const float* channelData);
     void getRank(float* Rank, float magnitude[]);
     void selectMasking(float* masking, float** x);
     void eqfilter(AudioBuffer<float>* buffer, float* input, Filter* filter, int Q);
+    void reduceMasking(std::vector<AudioBuffer<float>>& buffers);
 
     //==============================================================================
     MtequalizerAudioProcessor();
