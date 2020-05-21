@@ -32,10 +32,10 @@ function audios = loadAudios(directory, winSize, overlapR, t0, tf)
 
         x = x(floor(t0*fs+1):floor(tf*fs), :); %read only a section of the audio
         x(end: floor(size(x)/stepL)*stepL + winSize + 1, :) = 0; %Fill input with 0 to fit all windows
-
-        if(size(x, 2) > 1) %Stereo to mono
-            x = sum(x, 2)/size(x, 2);
-        end
+        
+%         if(size(x, 2) > 1) %Stereo to mono
+%             x = sum(x, 2)/size(x, 2);
+%         end
         
         audios.samples(i,:) = {x'};
         audios.fs(i,:) = {fs};

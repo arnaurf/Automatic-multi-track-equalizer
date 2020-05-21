@@ -14,10 +14,16 @@ Qfact = Q(nozero);
 
 %Cascade filters
 [B, A] = peakFilter(centers(1), Qfact(1), fs, magnitude(1));
-y = filter(B,A,x);
+%y = filter(B,A,x);
+y = zeros(size(x));
+for channel=1:size(x,1)
+   y(channel,:) = filter(B,A,x(channel,:));  
+end
 for i=2:length(nozero)
     [B2, A2] = peakFilter(centers(i), Qfact(i), fs, magnitude(i));
-    y = filter(B2,A2,y);  
+    for channel=1:size(x,1)
+        y(channel,:) = filter(B2,A2,y(channel,:));  
+    end
 end
 %%%%%%%% Visualize filter
 %visualizeFilter(B,A,fs);

@@ -2,7 +2,7 @@ clear all;
 %% %%%%%%% INIT VARIABLES
 % WINDOW & OVERLAP
 winSize = 1024; %window size
-overlapR = 0; %overlap %
+overlapR = 0.5; %overlap %
 overlapSamples = ceil(overlapR*winSize);
 stepL = winSize - overlapSamples;
 
@@ -13,8 +13,12 @@ nTracks = size(x_original, 1);
 Length = size(x_original.samples{1},2);
 fs = x_original.fs{1};
 
-y_filtered = zeros(nTracks, Length); %create empty output
-
+y_filtered = cell(nTracks,1);
+for i=1:nTracks
+    y_filtered{i} = zeros(size(x_original.samples{i})); %create empty output
+end
+    
+    
 % INIT FILTER
 Q = 2;
 nF = 10; %number of filters EQ
@@ -40,6 +44,9 @@ alpha = 0; %alpha value for EMA smoothing
 frame = table(zeros(nTracks, winSize), zeros(nTracks, nF), zeros(nTracks, nF));
 frame.Properties.VariableNames = ["Samples", "MagRes", "Rank"];
 
+frameSamples = cell(nTracks,1);
+frameMag = zeros(nTracks, nF);
+frameRank = zeros(nTracks, nF);
 
 %% MAIN LOOP: for each frame of size winSize
 nframe = 1;
@@ -50,12 +57,13 @@ while winPos <= Length-winSize
     
     %Read frame for each track
     for iTrack = 1:nTracks
-        samples = x_original.samples{iTrack}(winPos:winPos+winSize-1); %read frame
+        frameSamples{iTrack} = x_original.samples{iTrack}(:,winPos:winPos+winSize-1); %read frame
+        samples_mono = sum(frameSamples{iTrack}, 1)/2;
         
         %%%%%%%%%%%% FEATURES EXTRACTION
-        MagRes = getMagRes(samples, b, a);        %get Magnitude of each band
-        Rank = getRank(MagRes, aF)';                %get Ranking of most important bands on the frame
-        frame(iTrack,:) = table(samples, MagRes, Rank);  %save it on a table
+        frameMag(iTrack,:) = getMagRes(samples_mono, b, a);        %get Magnitude of each band
+        frameRank(iTrack,:) = getRank(frameMag(iTrack,:), aF)';                %get Ranking of most important bands on the frame
+        %frame(iTrack,:) = cell(samples, MagRes, Rank);  %save it on a table
     end
     
 
@@ -66,8 +74,8 @@ while winPos <= Length-winSize
         for i_maskee = 1:nTracks %compare it with each possible maskee
             if i_masker ~= i_maskee %avoid comparing with itself
                 for i_band = 1:nF %per each band
-                    if (frame.Rank(i_maskee,i_band) <= Rt) && (Rt < frame.Rank(i_masker, i_band)) %Equation (1) on reference [1]
-                        M{i_masker, i_maskee}(i_band) = frame.MagRes(i_masker,i_band) - frame.MagRes(i_maskee,i_band);
+                    if (frameRank(i_maskee,i_band) <= Rt) && (Rt < frameRank(i_masker, i_band)) %Equation (1) on reference [1]
+                        M{i_masker, i_maskee}(i_band) = frameMag(i_masker,i_band) - frameMag(i_maskee,i_band);
                     else
                         M{i_masker, i_maskee}(i_band) = 0;
                     end
@@ -100,14 +108,13 @@ while winPos <= Length-winSize
     end
     
 %%%%%%%%%%%%%%%% FILTERING
-    frame_filtered = zeros(nF, winSize); %init empty filtered frame variable
     for i_track = 1:nTracks
         
         %EQUALIZE   eq_filter(x, fc, Q, winSize, fs)
-        frame_filtered = eq_filter(frame.Samples(i_track,:), filter.center(i_track,:), zeros(1, 10)+Q, filter.gain(i_track,:).*(-1), fs);
+        frame_filtered = eq_filter(frameSamples{i_track}, filter.center(i_track,:), zeros(1, 10)+Q, filter.gain(i_track,:).*(-1), fs);
         
         %Sum the overlapping part of samples with new ones
-        y_filtered(i_track,winPos:winPos+winSize-1) = [y_filtered(i_track,winPos:winPos+overlapSamples-1), zeros(1, stepL)] + frame_filtered;
+        y_filtered{i_track}(:,winPos:winPos+winSize-1) = [y_filtered{i_track}(:,winPos:winPos+overlapSamples-1), zeros(size(frame_filtered,1),stepL)] + frame_filtered.*W';
     end
 
     % First frame alpha is 0.
@@ -132,15 +139,15 @@ fprintf("Elapsed time is %f seconds, performance: %fx\n", t, Length/fs/t);
 
 %% WRITE AUDIOS
 for i = 1:nTracks
-    audiowrite("audios_rendered/FILT-"+x_original.fileName{i}, real(y_filtered(i,:)), fs);
+    audiowrite("audios_rendered/FILT-"+x_original.fileName{i}, real(y_filtered{i})', fs);
 end
 
 for i = 1:nTracks %Rewrite original audios bc it could have been cut
-    audiowrite("audios_rendered/ORIG-"+x_original.fileName{i}, real(x_original.samples{i,:}), fs);
+    audiowrite("audios_rendered/ORIG-"+x_original.fileName{i}, real(x_original.samples{i,:}'), fs);
 end
 
 %%
-sound(real(y_filtered(1,:)), fs);
+sound(real(y_filtered{1}), fs);
 
 %%
 clear sound
