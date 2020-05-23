@@ -29,7 +29,8 @@ public:
     struct strack {
         float MagRes[10];
         float Rank[10];
-        float* Samples;
+        AudioBuffer<float>* buffer;
+        bool stereo;
     }typedef Track;
 
     float winSize, overlapR, overlapSamples, stepL, alpha = 0;
@@ -37,10 +38,10 @@ public:
     int Q = 0;
     double b[50] = B_COEF;
     double a[50] = A_COEF;
-    Filter** filter;
-    float*** M;
+    std::vector<std::vector<Filter>> filter;
+    std::vector<std::vector<std::vector<float>>> M;
     bool firstFrame;
-    double* window;
+    std::vector<double> window;
 
     //AudioBuffer<float>* buffers;
     std::vector<AudioBuffer<float>> mCurrBuffers; //current buffers, real i/o bufers
@@ -48,10 +49,10 @@ public:
     std::vector<AudioBuffer<float>> mCurrOverlapBuffers;  //second half of the last frame buffer, and first half of the current buffer
     std::vector<AudioBuffer<float>> mPrevOverlapBuffers;
 
-    void getMagRes(float MagRes[], const float* channelData);
+    void getMagRes(float MagRes[], const AudioBuffer<float> buffer, bool isStereo);
     void getRank(float* Rank, float magnitude[]);
-    void selectMasking(float* masking, float** x);
-    void eqfilter(AudioBuffer<float>* buffer, float* input, Filter* filter, int Q);
+    void selectMasking(std::vector<float> &masking, std::vector<std::vector<float>> x);
+    void eqfilter(Track &track, std::vector<Filter> filter, int Q);
     void reduceMasking(std::vector<AudioBuffer<float>>& buffers);
 
     //==============================================================================
@@ -90,6 +91,8 @@ public:
     //==============================================================================
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+
+    bool isMono(AudioBuffer<float> buffer);
 
 private:
     //==============================================================================

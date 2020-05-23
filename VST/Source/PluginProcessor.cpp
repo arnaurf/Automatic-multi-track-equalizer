@@ -12,106 +12,10 @@
 #include "PluginEditor.h"
 #include "Biquad.h"
 #include "BiquadFilter.h"
+#include <algorithm>
+#include "utils.h"
 
-
-int offset(int x, int y, int z, int xSize, int ySize) {
-    return (z * xSize * ySize) + (y * xSize) + x;
-}
-
-float EMA(float x, float y0, float alpha) {
-    return (1 - alpha) * x + alpha * y0;
-}
-
-void hanning(double* buffer, int size) {
-    for (int i = 0; i < size; i++) {
-        buffer[i] =  0.5 * (1 - cos(2 * M_PI * i / size));
-    }
-}
-
-double* filter2(double b[], double a[], const float* X, int sizeF, int sizeX) {
-
-    //float* z = (float*)calloc(sizeX, sizeof(float));
-    for (int i = 0; i < sizeF; i++) {
-        b[i] = b[i] / a[0];
-        a[i] = a[i] / a[0];
-    }
-
-    double* Y = (double*)calloc(sizeX, sizeof(double));
-    
-    for (int n = 0; n < sizeX; n++) {
-        double auxX = 0;
-        double auxY = 0;
-        for (int m = 0; m < sizeF; m++) {
-            if(n-m >= 0)
-                auxX = auxX + X[n - m] * b[m];
-        }
-        for (int m = 1; m < sizeF; m++) {
-            if (n - m>= 0)
-                auxY = auxY + Y[n - m] * a[m];
-        }
-        Y[n] = (auxX - auxY) / double(a[0]);
-    }
-    
-    /*for (int m = 1; m < sizeX; m++) {
-        Y[m] = b[0] * X[m] + z[0];
-        for (int i = 2; i < sizeF; i++) {
-            z[i - 1] = b[i] * X[m] + z[i] - a[i] * Y[m];
-        }
-    }
-    //z = z[1:n - 1];*/
-    return Y;
-}
-
-double* filter3(double b[], double a[], const float* X, int sizeB, int sizeA, int sizeX) {
-
-    //float* z = (float*)calloc(sizeX, sizeof(float));
-    for (int i = 0; i < sizeB; i++) {
-        b[i] = b[i] / a[0];
-    }
-    for (int i = 0; i < sizeA; i++) {
-        a[i] = a[i] / a[0];
-    }
-    double* Y = (double*)calloc(sizeX, sizeof(double));
-
-    for (int n = 0; n < sizeX; n++) {
-        double auxX = 0;
-        double auxY = 0;
-        for (int m = 0; m < sizeB; m++) {
-            if (n - m >= 0)
-                auxX = auxX + X[n - m] * b[m];
-        }
-        for (int m = 1; m < sizeA; m++) {
-            if (n - m >= 0)
-                auxY = auxY + Y[n - m] * a[m];
-        }
-        Y[n] = (auxX - auxY) / double(a[0]);
-    }
-
-    return Y;
-}
-
-float rms(double x[], int n)
-{
-    double sum = 0;
-
-    for (int i = 0; i < n; i++)
-        sum += pow(x[i], 2);
-
-    return sqrt(sum / n);
-}
-
-float* max(float x[], int size) {
-
-    float temp_max[2] = { x[0],0 };
-    for (int i = 0; i < size; i++) {
-        if (x[i] > temp_max[0]) {
-            temp_max[0] = x[i];
-            temp_max[1] = i;
-        }
-    }
-    return temp_max;
-}
-
+#define MAX_CHANNELS 5
 
 
 //==============================================================================
@@ -121,21 +25,21 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
          .withInput("Input1", AudioChannelSet::stereo(), true)
-         .withInput("Input2", AudioChannelSet::stereo(), true)
-         .withInput("Input3", AudioChannelSet::stereo(), true)
-         .withInput("Input4", AudioChannelSet::stereo(), true)
-         .withInput("Input5", AudioChannelSet::stereo(), true)
+         .withInput("Input2", AudioChannelSet::stereo(), false)
+         .withInput("Input3", AudioChannelSet::stereo(), false)
+         .withInput("Input4", AudioChannelSet::stereo(), false)
+         .withInput("Input5", AudioChannelSet::stereo(), false)
                       #endif
          .withOutput("Output1", AudioChannelSet::stereo(), true)
-         .withOutput("Output2", AudioChannelSet::stereo(), true)
-         .withOutput("Output3", AudioChannelSet::stereo(), true)
-         .withOutput("Output4", AudioChannelSet::stereo(), true)
-         .withOutput("Output5", AudioChannelSet::stereo(), true)
+         .withOutput("Output2", AudioChannelSet::stereo(), false)
+         .withOutput("Output3", AudioChannelSet::stereo(), false)
+         .withOutput("Output4", AudioChannelSet::stereo(), false)
+         .withOutput("Output5", AudioChannelSet::stereo(), false)
                      #endif
                        )
 #endif
 {
-
+    
     this->Q = 2;
     this->winSize = this->getBlockSize();
     this->overlapR = 0.25;
@@ -149,27 +53,9 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
     this->firstFrame = true;
 
 
-    //filter = (Filter*)malloc(sizeof(Filter) * nTracks * nF);
-    filter = new Filter*[nTracks];
+    filter = std::vector<std::vector<Filter>>(nTracks);
     for (int i = 0; i < nTracks; i++)
-        filter[i] = new Filter[nF];
-
-
-    //buffers = new AudioBuffer<float>[nTracks];
-    
-
-    
-    float x[400];
-    for (int i = 0; i < 400; i++) {
-        x[i] = i * 0.01;
-    }
-    //float x[10] = { 1,2,3,4,5,6,7,8,9,10 };
-    //double b[] = { 1 };
-    //double a[] = { 1, 0.2 };
-    double* y;
-
-   //y = filter2(b, a, x, 5, 400);
-
+        filter[i] = std::vector<Filter>(nF);
 
     for (int i = 0; i < nTracks; i++) {
         for (int j = 0; j < nF; j++) {
@@ -177,17 +63,20 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
             filter[i][j].gain = 0;
         }
     }
-   // M = (float***)malloc(sizeof(float**) * nTracks);
-    M = new float**[nTracks];
+
+
+    M = std::vector<std::vector<std::vector<float>>>(nTracks);
     for (int i = 0; i < nTracks; i++) {
-        M[i] = new float* [nTracks];
+        M[i] = std::vector<std::vector<float>>(nTracks);
         for (int ii = 0; ii < nTracks; ii++) {
-            M[i][ii] = new float[aF];
+            M[i][ii] = std::vector<float>(aF);
         }
     }
 
-    
+   
 }
+
+
 
 MtequalizerAudioProcessor::~MtequalizerAudioProcessor()
 {
@@ -260,14 +149,19 @@ void MtequalizerAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-   
+
+
+
+    this->alpha = 0;
+    this->winSize = samplesPerBlock;
     firstFrame = true;
+
+    // CLEAR ALL THE BUFFERS
     mPrevBuffers.clear();
     mPrevOverlapBuffers.clear();
     mCurrOverlapBuffers.clear();
     mCurrBuffers.clear();
-
-    for (int i = 0; i < nTracks; i++) {
+    for (int i = 0; i < MAX_CHANNELS; i++) {
         mPrevBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
         mPrevBuffers[i].clear();
 
@@ -280,8 +174,9 @@ void MtequalizerAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
         mCurrBuffers.push_back(AudioBuffer<float>(2, samplesPerBlock));
         mCurrBuffers[i].clear();
     }
-    window = new double[winSize];
-    hanning(window, winSize);
+    
+    window = std::vector<double>(samplesPerBlock);
+    hanning(window, samplesPerBlock);
     
 }
 
@@ -298,10 +193,12 @@ bool MtequalizerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     ignoreUnused (layouts);
     return true;
   #else
+
+
     // This is the place where you check if the layout is supported.
     // In this template code we only support mono or stereo.
     if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
+       && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
         return false;
 
     // This checks if the input layout matches the output layout
@@ -314,65 +211,126 @@ bool MtequalizerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
   #endif
 }
 #endif
-void MtequalizerAudioProcessor::getMagRes(float MagRes[], const float* channelData) {
-    int sizeF = sizeof(b) / sizeof(*b) / nTracks;
-    double* xx = (double*)malloc(sizeof(double) * sizeF);
-    for (int i = 0; i < sizeF; i++) {
-        xx = filter2(&b[i * nTracks], &a[i * nTracks], channelData, 5, this->winSize);
-        float rmsX = rms(xx, winSize);
+
+
+//Returns on the MagRes array the magnitude of each frequency band inside of "buffer".
+void MtequalizerAudioProcessor::getMagRes(float MagRes[], const AudioBuffer<float> buffer, bool isStereo) {
+
+    //Init vars
+    int nBands = sizeof(b) / sizeof(*b) / nTracks; //Number of frequency bands
+    const float* channelData;
+    AudioBuffer<float> aux = AudioBuffer<float>(buffer.getNumChannels(), buffer.getNumSamples());
+
+    //If it is stereo, down to mono
+    if (isStereo) {
+        for (int i = 0; i < buffer.getNumSamples(); i++) {
+            aux.setSample(0, i, (buffer.getSample(0, i) + buffer.getSample(1, i))/2 );
+        }
+        channelData = aux.getReadPointer(0);
+    }
+    else //If it is mono, then just take the first channel
+        channelData = buffer.getReadPointer(0);
+    
+    
+    std::vector<double> xx;
+    for (int i = 0; i < nBands; i++) { //for each analisis frequency band
+
+        xx = filter2(&b[i * nTracks], &a[i * nTracks], channelData, 5, this->winSize);//bandpass filter it
+        float rmsX = rms(xx, winSize); //calculate the RMS magnitude
+
         if (rmsX != 0)
             MagRes[i] = 20 * log10(rmsX);
         else
             MagRes[i] = -INFINITY;
     }
-
+    
 }
 
+
+//Returns inside the Rank array the ranking of the most important frequency bands of the signal, being 1 the most relevant and 10 the less relevant.
 void MtequalizerAudioProcessor::getRank(float* Rank, float magnitude[]) {
-    float* magnitude_cpy = (float*)malloc(sizeof(float) * this->aF);
 
-    memcpy(magnitude_cpy, magnitude, sizeof(float) * this->aF);
+    //Init vars
+    std::vector<float> magnitude_cpy(magnitude, magnitude+aF);//
     float* max_value;
+
+
     for (int i = 0; i < this->aF; i++) {
-        max_value = max(magnitude_cpy, this->aF);
-        magnitude_cpy[(int)max_value[1]] = -200;
-        Rank[(int)max_value[1]] = i;
+        max_value = max(magnitude_cpy, this->aF); //Take the maximum value on magnitude_cpy. max_value = [value, index]
+        magnitude_cpy[(int)max_value[1]] = -200;  //Set this value to -200 so it wont be the max value the next iteration
+        Rank[(int)max_value[1]] = i;              //Set the rank array on that index to the iteration number (first max value found, is the most important)
     }
 }
 
-//x[5][10]
-void MtequalizerAudioProcessor::selectMasking(float* masking, float** x) {
+//x[5][10]. On a given track, it returns for each frequency band the bigger masking is producing to the other tracks.
+void MtequalizerAudioProcessor::selectMasking(std::vector<float>& masking, std::vector<std::vector<float>> x) {
 
-    float* aux = new float[aF];
-    for (int i = 0; i < aF; i++) { //for each band (aF)
+    std::vector<float> aux(aF);
+    for (int iBand = 0; iBand < aF; iBand++) { //for each band (aF, analisisFilter bands)
 
-        for (int j = 0; j < nTracks; j++) {
-            aux[j] = x[j][i];
+        //Put all the masking of the other tracks on a single array.
+        for (int iTrack = 0; iTrack < nTracks; iTrack++) {
+            aux[iTrack] = x[iTrack][iBand];
         }
-        float* output = max(aux, aF);
-        masking[i] = output[0]*(-1);
+        float* max_value = max(aux, aF); //Then, the return the maximum value on that array.
+
+        //Notice that as we computed the amount of masking as the difference between the magnitude of the masker and the maskee,
+        //the masking amount is positive. But we want the "gain" compansation to be negative, that why (-1).
+        masking[iBand] = max_value[0]*(-1);
     }
 }
 
-void MtequalizerAudioProcessor::eqfilter(AudioBuffer<float>* buffer, float*input, Filter* filter, int Q) {
+//if buffer does not contain any data, return false. If buffer contains 1 channel, return true.
+//if buffer conaints 2 channels, but both contains the same data return true. Else, return false.
+bool MtequalizerAudioProcessor::isMono(AudioBuffer<float> buffer) {
 
-    Biquad* lpFilter = new Biquad();	// create a Biquad, lpFilter;
-    BiquadFilter aux3 = BiquadFilter(100, 2, 48000, 2);
-    for (int iBand = 0; iBand < this->nF; iBand++) {
-        lpFilter->setBiquad(bq_type_peak, filter[iBand].center / this->getSampleRate(), Q, filter[iBand].gain);
-        double* aux2 = lpFilter->getCoef();
-        for (int channel = 0; channel < 2; channel++) {
-            float * Y = (float*)filter3(&aux2[3], aux2, input, 3,2, winSize);
-            *(buffer->getWritePointer(channel)) = *Y;
+    if (buffer.getNumChannels() == 0)
+        return false;
 
-            /*for (int idx = 0; idx < this->winSize; idx++) {
-                float aux = lpFilter->process(input[idx]);
-                float a = 0;
-                (buffer->getWritePointer(channel))[idx] = 1.0f * aux;
-            }*/
+    if (buffer.getNumChannels() == 1)
+        return true;
 
+    //Check if we found differences between both channels. If it does, it is not mono.
+    for (int i = 0; i < buffer.getNumSamples(); i++) {
+        if (buffer.getSample(0, i) != buffer.getSample(1, i))
+            return false;
+    }
+    return true;
+}
+
+
+//Equalize the track with the filter.
+void MtequalizerAudioProcessor::eqfilter(Track& track, std::vector<Filter> filter, int Q) {
+
+    Biquad lpFilter = Biquad();	// create a Biquad, lpFilter;
+    for (int iBand = 1; iBand < this->nF; iBand++) {
+       
+        //If the gain is 0 (or too small) avoid filtering.
+        if (filter[iBand].gain < -0.1) {
+
+            float gain = clamp(filter[iBand].gain, -6, 0);
+            BiquadFilter peakFilter = BiquadFilter(filter[iBand].center, Q, this->getSampleRate(), gain);
+
+
+            //Equalize first channel
+            int channel = 0;
+            filter3(track.buffer->getWritePointer(channel), peakFilter, track.buffer->getReadPointer(channel), winSize);
+
+            // CHECK FOR STEREO
+            if (track.buffer->getNumChannels() == 2) { //If its stereo, equalize secondary channel
+                channel = 1;
+                //Reaper sometimes converts mono sources to stereo, so we have to check
+                //If it is truly stereo, we equalize the second channel. If it a copy of the first channel, then we copy the previous result "Y"
+                if (track.stereo) {
+                    filter3(track.buffer->getWritePointer(channel), peakFilter, track.buffer->getReadPointer(channel), winSize);
+                }
+                else {
+                    track.buffer->copyFrom(channel, 0, track.buffer->getReadPointer(0), winSize);
+                }
+            }
 
         }
+        
     } 
 
 
@@ -381,34 +339,48 @@ void MtequalizerAudioProcessor::eqfilter(AudioBuffer<float>* buffer, float*input
 
 }
 
+
+//Thats the method that checks for the masked frequency bands of each track and equalize each track to reduce the masking.
 void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& buffers) {
-    Track* track;
-    track = new Track[nTracks];
+    
+    if (buffers.size() <= 1) //If we only have one track enabled, nothing to compare with
+        return;
+    
 
-    for (int channel = 0; channel < nTracks; ++channel) {
-        track[channel].Samples = buffers[channel].getWritePointer(0);
-        getMagRes(track[channel].MagRes, buffers[channel].getReadPointer(0));
-        getRank(track[channel].Rank, track[channel].MagRes);
-    }//IT WORKS!
+    //Instert all track's info into a struct "Track" (MagRes, Ranking, Buffer and Stereo bool)
+    std::vector<Track> track(nTracks);
+    for (int iTrack = 0; iTrack < nTracks; ++iTrack) {
 
-    for (int masker = 0; masker < nTracks; ++masker) {
-        for (int maskee = 0; maskee < nTracks; ++maskee) {
-            if (masker != maskee) {
-                for (int i_band = 0; i_band < this->aF; i_band++) {
+        track[iTrack].buffer = &buffers[iTrack];            //Save the buffer pointer
+        track[iTrack].stereo = !isMono(buffers[iTrack]);    //Check if it is truly stereo
+        getMagRes(track[iTrack].MagRes, buffers[iTrack], track[iTrack].stereo); // Save the magnitude of 10 frequency bands
+        getRank(track[iTrack].Rank, track[iTrack].MagRes);  //Save the ranking of most important frequency bands
+
+    }
+    
+    // Create Masking Matrix. It is, a comparation of which tracks are masking to others in a specific frequency band
+    for (int masker = 0; masker < nTracks; ++masker) { //masker -> the track is creating the masking
+        for (int maskee = 0; maskee < nTracks; ++maskee) { //maskee -> the track is being masked
+            if (masker != maskee) { //don't compare with itself
+
+                for (int i_band = 0; i_band < this->aF; i_band++) { //For each freq. band
+
                     if ((track[masker].Rank[i_band] < this->Rt) && (this->Rt <= track[maskee].Rank[i_band]))
                         M[masker][maskee][i_band] = track[masker].MagRes[i_band] - track[maskee].MagRes[i_band];
                     else
                         M[masker][maskee][i_band] = 0;
                 }
-            }
-            else {
+
+            }else { //if its comparing with itself, just put 0 masking.
                 for (int i_band = 0; i_band < this->aF; i_band++)
                     M[masker][maskee][i_band] = 0;
             }
         }
     }
 
-    float* masking = (float*)malloc(sizeof(float) * aF);
+    
+    //Now, for each track select the bigger amount of masking is producing to the others and smooth the change with the previous frame.
+    std::vector<float> masking(aF);
     for (int i_masker = 0; i_masker < nTracks; i_masker++) {
         selectMasking(masking, M[i_masker]);
 
@@ -423,86 +395,84 @@ void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& b
         }
 
     }
-
+    
+    // Now we know the amount of masking, so we equalize each track.
     for (int iTrack = 0; iTrack < nTracks; iTrack++) {
-        eqfilter(&buffers[iTrack], track[iTrack].Samples, filter[iTrack], Q);
-
-        for (int idx = 0; idx < this->winSize; idx++) {
-            for (int channel = 0; channel < 2; channel++) {
-                (buffers[iTrack].getWritePointer(channel))[idx] = track[iTrack].Samples[idx];
-                //(buffers[iTrack]->getWritePointer(channel))[idx] = track[iTrack].Samples[idx];
-            }
-        }
+        eqfilter(track[iTrack], filter[iTrack], Q);
     }
 
+
+    //We use the alpha value for the smoothing process. Only the first frame alpha=0 (no smoothing)
     if (!alpha)
         alpha = exp(-1 / (2 * this->getSampleRate()));
+ 
+    
 }
 
-
+//Thats is called each frame by the DAW.
 void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
-    ScopedNoDenormals noDenormals;
+
     auto totalNumInputChannels  = getTotalNumInputChannels();
-    //auto totalNumOutputChannels = getTotalNumOutputChannels();   
-    int totalChannels = 2;
 
-    this->winSize = buffer.getNumSamples();
-
-
-    //float* M = (float*)malloc(sizeof(float) * nTracks * nTracks * this->aF);
-
-    //AudioBuffer<float>* buffers = (AudioBuffer<float>*) calloc(sizeof(AudioBuffer<float>), nTracks);
-     
-    AudioBuffer<float> aux;
-     for (int i = 0; i < nTracks; i++) {
+    // Check which tracks are enabled and save them on mCurrBuffers
+    this->nTracks = 0;
+    int iTrack = 0;
+    for (int i = 0; i < MAX_CHANNELS; i++) {
         Bus* bus = getBus(true, i);
-        mCurrBuffers[i] = (bus->getBusBuffer(buffer));
+        if (bus->isEnabled()) {
+            this->nTracks += 1;
+            mCurrBuffers[iTrack] = bus->getBusBuffer(buffer);
+            iTrack += 1;
+        }
+        
     }
-    
- 
-    //Complete mOverlapBuffers
+     this->nTracks = iTrack;  //Save the amount of actual enabled tracks
+     
+     
+    //Complete mOverlapBuffers. This is the overlap part of the previous frame.
     for (int i = 0; i < nTracks; i++) {
-        for (int channel = 0; channel < totalChannels; channel++) {
+        for (int channel = 0; channel < mCurrBuffers[i].getNumChannels(); channel++) {
             mCurrOverlapBuffers[i].copyFrom(channel, 0, mPrevBuffers[i], channel, winSize / 2, winSize / 2);
             mCurrOverlapBuffers[i].copyFrom(channel, winSize / 2, mCurrBuffers[i], channel, 0, winSize / 2);
         }
     }
-   
-    reduceMasking(mCurrBuffers);
-    reduceMasking(mCurrOverlapBuffers);
-
     
+    // Process the previous frame and the overlapping part of the current one. We process two "sub frames" each frame.
+    reduceMasking(mPrevBuffers);
+    reduceMasking(mCurrOverlapBuffers);
+    
+    
+    // Construct the frame. We use the previous frame, plus the overlapping part of the pre-previous frame and the overlapping part of the current frame
     for (int i = 0; i < nTracks; i++) {
-
-        for (int channel = 0; channel < totalChannels; channel++) {
+        for (int channel = 0; channel < mCurrBuffers[i].getNumChannels(); channel++) {
 
             float aux;
-            /*for (int s = 0; s < winSize; s++) {
-                
-                mCurrBuffers[i].setSample(channel, s, mPrevBuffers[i].getSample(channel, s));
-                mPrevBuffers[i].setSample(channel, s, aux);
-            }
-            */
             for (int s = 0; s < winSize; s++) { //Iterate all samples
+                aux = mCurrBuffers[i].getSample(channel, s); //save it for later
 
-                aux = mCurrBuffers[i].getSample(channel, s);
-                if (s < winSize / 2)  //The first half, output = LastBuffer
+                //The first half of the current frame is the previous frame + the pre-previous frame overlapping part
+                if (s < winSize / 2)  
                     mCurrBuffers[i].setSample(channel, s, mPrevOverlapBuffers[i].getSample(channel, s + winSize / 2) * window[int(s + winSize / 2)] + mPrevBuffers[i].getSample(channel, s) * window[s]);
 
-                else   //The second half, output = second half of LastBuffer + first half of mOverlapBuffer
+                //The second half of the current frame, is the previous frame + the current frame overlapping part
+                else   
                     mCurrBuffers[i].setSample(channel, s, mCurrOverlapBuffers[i].getSample(channel, s - winSize / 2) * window[int(s - winSize / 2)] + mPrevBuffers[i].getSample(channel, s) * window[s]);
 
+                // For the next frame, the previous frame is the current one now.
                 mPrevBuffers[i].setSample(channel, s, aux);
             }
             
-
+            //The pre-previous overlapping part on the next frame is the current overlapping buffer.
             mPrevOverlapBuffers[i].copyFrom(channel, 0, mCurrOverlapBuffers[i], channel, 0, winSize);
 
         }
 
     }
-
+    
+    
+    //Clear midi messages, we don't produce any.
+    midiMessages.clear();
 }
 
 //==============================================================================

@@ -34,7 +34,7 @@
 */
 
 // BEGIN SECTION A
-//#define JucePlugin_PreferredChannelConfigurations {5, 5}
+//#define JucePlugin_PreferredChannelConfigurations {10,10}, {1,1}
 
 #ifndef JUCE_DISPLAY_SPLASH_SCREEN
  #define JUCE_DISPLAY_SPLASH_SCREEN 1
