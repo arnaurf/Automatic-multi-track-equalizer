@@ -34,7 +34,6 @@
 */
 
 // BEGIN SECTION A
-//#define JucePlugin_PreferredChannelConfigurations {10,10}, {1,1}
 
 #ifndef JUCE_DISPLAY_SPLASH_SCREEN
  #define JUCE_DISPLAY_SPLASH_SCREEN 1
@@ -339,7 +338,7 @@
  #define JucePlugin_Desc                   "MTEqualizer"
 #endif
 #ifndef  JucePlugin_Manufacturer
- #define JucePlugin_Manufacturer           "ARU Software"
+ #define JucePlugin_Manufacturer           "yourcompany"
 #endif
 #ifndef  JucePlugin_ManufacturerWebsite
  #define JucePlugin_ManufacturerWebsite    ""
@@ -444,7 +443,7 @@
  #define JucePlugin_IAASubType             JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_IAAName
- #define JucePlugin_IAAName                "ARU Software: MTEqualizer"
+ #define JucePlugin_IAAName                "yourcompany: MTEqualizer"
 #endif
 #ifndef  JucePlugin_VSTNumMidiInputs
  #define JucePlugin_VSTNumMidiInputs       16
