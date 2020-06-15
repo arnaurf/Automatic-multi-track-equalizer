@@ -1,6 +1,18 @@
 function output = selectMasking(M, nF)
+output = zeros(1, size(M,2));
+aux = max(squeeze(M), [], 1);
 
-output = max(squeeze(M), [], 1);
+if nF == size(M,2)  %%If there are as filters as analysis bands, just return
+    output = aux;
+    return;
+end
+
+%%Select the nF bigger masking amounts
+for i=1:nF
+    [M, I] = max(aux);
+    output(I) = M;
+    aux(I) = 0;
+end
 
 % for i = 1:size(M, 2)
 %     masking(i) = max(M(1,:,i));

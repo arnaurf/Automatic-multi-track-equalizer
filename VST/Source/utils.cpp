@@ -101,8 +101,10 @@ float rms(std::vector<double> x, int n)
 
 //It returns the [value, index] of the maximum value inside of x.
 float* max(std::vector<float> x, int size) {
-
-    float temp_max[2] = { x[0],0 };
+	float *temp_max = new float[2];
+	temp_max[0] = x[0];
+	temp_max[1] = 0;
+    //float temp_max[2] = { x[0],0 };
     for (int i = 0; i < size; i++) {
         if (x[i] > temp_max[0]) {
             temp_max[0] = x[i];

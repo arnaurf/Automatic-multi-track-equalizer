@@ -39,7 +39,13 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
                        )
 #endif
 {
-    
+
+
+	last_gain = 1;
+	gain = 1;
+	eq_normalize = false;
+	post_gain = 1;
+
     this->Q = 2;
     this->winSize = this->getBlockSize();
     this->overlapR = 0.25;
@@ -53,14 +59,14 @@ MtequalizerAudioProcessor::MtequalizerAudioProcessor()
     this->firstFrame = true;
 
 
-    filter = std::vector<std::vector<Filter>>(nTracks);
+    filters = std::vector<std::vector<Filter>>(nTracks);
     for (int i = 0; i < nTracks; i++)
-        filter[i] = std::vector<Filter>(nF);
+        filters[i] = std::vector<Filter>(nF);
 
     for (int i = 0; i < nTracks; i++) {
         for (int j = 0; j < nF; j++) {
-            filter[i][j].center = 31.25 * pow(2, j);
-            filter[i][j].gain = 0;
+            filters[i][j].center = 31.25 * pow(2, j);
+            filters[i][j].gain = 0;
         }
     }
 
@@ -217,31 +223,38 @@ bool MtequalizerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 void MtequalizerAudioProcessor::getMagRes(float MagRes[], const AudioBuffer<float> buffer, bool isStereo) {
 
     //Init vars
-    int nBands = sizeof(b) / sizeof(*b) / nTracks; //Number of frequency bands
     const float* channelData;
     AudioBuffer<float> aux = AudioBuffer<float>(buffer.getNumChannels(), buffer.getNumSamples());
 
     //If it is stereo, down to mono
-    if (isStereo) {
-        for (int i = 0; i < buffer.getNumSamples(); i++) {
-            aux.setSample(0, i, (buffer.getSample(0, i) + buffer.getSample(1, i))/2 );
-        }
-        channelData = aux.getReadPointer(0);
-    }
-    else //If it is mono, then just take the first channel
-        channelData = buffer.getReadPointer(0);
-    
-    
+	bool nonZero;
+     for (int i = 0; i < buffer.getNumSamples(); i++) {
+		 if (buffer.getSample(0, i) != 0)
+			 nonZero = true;
+
+		 if (isStereo) 
+			aux.setSample(0, i, (buffer.getSample(0, i) + buffer.getSample(1, i))/2);
+		 else
+			aux.setSample(0, i, buffer.getSample(0, i));
+	 }
+		//channelData = buffer.getReadPointer(0);
+
+	channelData = aux.getReadPointer(0);
+
     std::vector<double> xx;
-    for (int i = 0; i < nBands; i++) { //for each analisis frequency band
+    for (int i = 0; i < this->aF; i++) { //for each analisis frequency band
 
-        xx = filter2(&b[i * nTracks], &a[i * nTracks], channelData, 5, this->winSize);//bandpass filter it
-        float rmsX = rms(xx, winSize); //calculate the RMS magnitude
+		if(!nonZero)
+			MagRes[i] = -INFINITY;
+		else {
+			xx = filter2(&b[i * nTracks], &a[i * nTracks], channelData, 5, this->winSize);//bandpass filter it
+			float rmsX = rms(xx, winSize); //calculate the RMS magnitude
 
-        if (rmsX != 0)
-            MagRes[i] = 20 * log10(rmsX);
-        else
-            MagRes[i] = -INFINITY;
+			if (rmsX != 0)
+				MagRes[i] = 20 * log10(rmsX);
+			else
+				MagRes[i] = -INFINITY;
+		}
     }
     
 }
@@ -259,6 +272,7 @@ void MtequalizerAudioProcessor::getRank(float* Rank, float magnitude[]) {
         max_value = max(magnitude_cpy, this->aF); //Take the maximum value on magnitude_cpy. max_value = [value, index]
         magnitude_cpy[(int)max_value[1]] = -200;  //Set this value to -200 so it wont be the max value the next iteration
         Rank[(int)max_value[1]] = i;              //Set the rank array on that index to the iteration number (first max value found, is the most important)
+		delete[] max_value;
     }
 }
 
@@ -277,6 +291,8 @@ void MtequalizerAudioProcessor::selectMasking(std::vector<float>& masking, std::
         //Notice that as we computed the amount of masking as the difference between the magnitude of the masker and the maskee,
         //the masking amount is positive. But we want the "gain" compansation to be negative, that why (-1).
         masking[iBand] = max_value[0]*(-1);
+
+		delete[] max_value;
     }
 }
 
@@ -308,8 +324,8 @@ void MtequalizerAudioProcessor::eqfilter(Track& track, std::vector<Filter> filte
         //If the gain is 0 (or too small) avoid filtering.
         if (filter[iBand].gain < -0.1) {
 
-            float gain = clamp(filter[iBand].gain, -6, 0);
-            BiquadFilter peakFilter = BiquadFilter(filter[iBand].center, Q, this->getSampleRate(), gain);
+			
+            BiquadFilter peakFilter = BiquadFilter(filter[iBand].center, Q, this->getSampleRate(), filter[iBand].gain*this->gain);
 
 
             //Equalize first channel
@@ -343,7 +359,7 @@ void MtequalizerAudioProcessor::eqfilter(Track& track, std::vector<Filter> filte
 //Thats the method that checks for the masked frequency bands of each track and equalize each track to reduce the masking.
 void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& buffers) {
     
-    if (buffers.size() <= 1) //If we only have one track enabled, nothing to compare with
+    if (buffers.size() <= 1 || nTracks <= 1) //If we only have one track enabled, nothing to compare with
         return;
     
 
@@ -365,7 +381,8 @@ void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& b
 
                 for (int i_band = 0; i_band < this->aF; i_band++) { //For each freq. band
 
-                    if ((track[masker].Rank[i_band] < this->Rt) && (this->Rt <= track[maskee].Rank[i_band]))
+                    if ((track[masker].Rank[i_band] < this->Rt) && (this->Rt <= track[maskee].Rank[i_band])
+						&& track[masker].MagRes[i_band] > -50 && track[maskee].MagRes[i_band] > -50)
                         M[masker][maskee][i_band] = track[masker].MagRes[i_band] - track[maskee].MagRes[i_band];
                     else
                         M[masker][maskee][i_band] = 0;
@@ -380,25 +397,39 @@ void MtequalizerAudioProcessor::reduceMasking(std::vector<AudioBuffer<float>>& b
 
     
     //Now, for each track select the bigger amount of masking is producing to the others and smooth the change with the previous frame.
-    std::vector<float> masking(aF);
-    for (int i_masker = 0; i_masker < nTracks; i_masker++) {
-        selectMasking(masking, M[i_masker]);
+    std::vector< std::vector<float>> masking(nTracks);
+	for (int i_masker = 0; i_masker < nTracks; i_masker++) {
+		masking[i_masker] = std::vector<float>(nF);
+		selectMasking(masking[i_masker], M[i_masker]);
+	}
+		
+	if (eq_normalize) {
+		for (int iB = 0; iB < nF; iB++) {
+			int count = 0;
+			for (int iT = 0; iT < nTracks; iT++) {
+				if (masking[iT][iB] < 0)
+					count++;
+			}
+		}
+	}
+	for (int i_masker = 0; i_masker < nTracks; i_masker++) {
 
         for (int i_bin = 0; i_bin < aF; i_bin++) {
-            if (masking[i_bin] != 0) {
-                //filter[i_masker][i_bin].gain = EMA(masking[i_bin], filter[i_masker][i_bin].gain, this->alpha);
-                filter[i_masker][i_bin].gain = masking[i_bin];
+            if (masking[i_masker][i_bin] != 0) {
+                filters[i_masker][i_bin].gain = EMA(masking[i_masker][i_bin], filters[i_masker][i_bin].gain, 0.99f);
+                //filters[i_masker][i_bin].gain = masking[i_bin];
             }
             else {
-                filter[i_masker][i_bin].gain = 0;
+				filters[i_masker][i_bin].gain = EMA(0, filters[i_masker][i_bin].gain, 0.99f);
+                //filters[i_masker][i_bin].gain = 0;
             }
         }
 
     }
-    
+
     // Now we know the amount of masking, so we equalize each track.
     for (int iTrack = 0; iTrack < nTracks; iTrack++) {
-        eqfilter(track[iTrack], filter[iTrack], Q);
+        eqfilter(track[iTrack], filters[iTrack], Q);
     }
 
 
@@ -441,7 +472,7 @@ void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuf
     // Process the previous frame and the overlapping part of the current one. We process two "sub frames" each frame.
     reduceMasking(mPrevBuffers);
     reduceMasking(mCurrOverlapBuffers);
-    
+
     
     // Construct the frame. We use the previous frame, plus the overlapping part of the pre-previous frame and the overlapping part of the current frame
     for (int i = 0; i < nTracks; i++) {
@@ -470,6 +501,17 @@ void MtequalizerAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuf
 
     }
     
+
+	for (int i = 0; i < nTracks; i++) {
+		if (this->last_gain != this->post_gain) {
+			mCurrBuffers[i].applyGainRamp(0, this->winSize, last_gain, post_gain);
+			last_gain = post_gain;
+		}else{
+			mCurrBuffers[i].applyGain(post_gain);
+			//apply gain
+		}
+
+	}
     
     //Clear midi messages, we don't produce any.
     midiMessages.clear();

@@ -1,23 +1,32 @@
 clear all; 
 %% %%%%%%% INIT VARIABLES
 % WINDOW & OVERLAP
-winSize = 1024; %window size
+winSize = 48000; %window size
 overlapR = 0.5; %overlap %
 overlapSamples = ceil(overlapR*winSize);
 stepL = winSize - overlapSamples;
 
 % LOAD AUDIOS -> loadAudios(directory, winSize, overlapR, t0, tf)
-x_original = loadAudios("audios", winSize, overlapR, 60,65); %t0 and tf optionals
+x_original = loadAudios("audios", winSize, overlapR); %t0 and tf optionals
 
 nTracks = size(x_original, 1);
 Length = size(x_original.samples{1},2);
 fs = x_original.fs{1};
+
+
+for i=1:nTracks
+    t = x_original.samples{i};
+    x_original.samples{i} = x_original.samples{i}./max(x_original.samples{i}, [], 'all');
+end
 
 y_filtered = cell(nTracks,1);
 for i=1:nTracks
     y_filtered{i} = zeros(size(x_original.samples{i})); %create empty output
 end
     
+
+
+
     
 % INIT FILTER
 Q = 2;

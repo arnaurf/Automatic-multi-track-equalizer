@@ -38,7 +38,7 @@ public:
     int Q = 0;
     double b[50] = B_COEF;
     double a[50] = A_COEF;
-    std::vector<std::vector<Filter>> filter;
+    std::vector<std::vector<Filter>> filters;
     std::vector<std::vector<std::vector<float>>> M;
     bool firstFrame;
     std::vector<double> window;
@@ -93,8 +93,16 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     bool isMono(AudioBuffer<float> buffer);
+	double last_gain, post_gain;
+	double gain;
+	bool eq_normalize;
 
 private:
     //==============================================================================
+	//MtequalizerAudioProcessor& processor;
+
+
+
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MtequalizerAudioProcessor)
 };
