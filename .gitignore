@@ -579,3 +579,64 @@ VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib.com
 VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/MTEqualizer_SharedCode.lastbuildstate
 VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEqualizer.Build.CppClean.log
 VST/Builds/VisualStudio2019/x64/Debug/VST3/MTEqualizer.vst3
+VST/Builds/LinuxMakefile/Makefile
+VST/Builds/LinuxMakefile/Makefile
+VST/Builds/VisualStudio2019/MTEqualizer_SharedCode.vcxproj
+VST/Builds/VisualStudio2019/MTEqualizer_SharedCode.vcxproj.filters
+VST/Builds/VisualStudio2019/MTEqualizer_StandalonePlugin.vcxproj
+VST/Builds/VisualStudio2019/MTEqualizer_VST3.vcxproj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/Biquad.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/BiquadFilter.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_basics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_devices.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_formats.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_plugin_client_utils.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_processors.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_utils.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_core.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_cryptography.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_data_structures.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_events.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_graphics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_gui_basics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_gui_extra.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_opengl.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.command.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.read.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.write.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib-link.read.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib-link.write.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib.command.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/MTEqualizer_SharedCode.lastbuildstate
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEqualizer.Build.CppClean.log
+VST/Builds/VisualStudio2019/x64/Debug/VST3/MTEqualizer.vst3
+VST/Builds/LinuxMakefile/Makefile
+VST/Builds/VisualStudio2019/MTEqualizer_SharedCode.vcxproj
+VST/Builds/VisualStudio2019/MTEqualizer_SharedCode.vcxproj.filters
+VST/Builds/VisualStudio2019/MTEqualizer_StandalonePlugin.vcxproj
+VST/Builds/VisualStudio2019/MTEqualizer_VST3.vcxproj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/Biquad.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/BiquadFilter.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_basics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_devices.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_formats.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_plugin_client_utils.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_processors.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_audio_utils.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_core.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_cryptography.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_data_structures.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_events.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_graphics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_gui_basics.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_gui_extra.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/include_juce_opengl.obj
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.command.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.read.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/CL.write.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib-link.read.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib-link.write.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/Lib.command.1.tlog
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEquali.FC410846.tlog/MTEqualizer_SharedCode.lastbuildstate
+VST/Builds/VisualStudio2019/x64/Debug/Shared Code/MTEqualizer.Build.CppClean.log
+VST/Builds/VisualStudio2019/x64/Debug/VST3/MTEqualizer.vst3
