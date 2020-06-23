@@ -2,12 +2,15 @@ clear all;
 %% %%%%%%% INIT VARIABLES
 
 % ============ USER PARAMETERS =========== %
-eq_normalize = true;
+eq_normalize = false;
 weighted_mean = true;
 S = 2; %Scale for the filter gain  (gain*S)
-Q = 3;
+Rt = 3; %max Rank
+Q = 2;
 nF = 5; %number of filters EQ
 % ======================================== %
+
+
 
 
 
@@ -48,11 +51,36 @@ end
 
 
 % OTHER VARIABLES
-Rt = 3; %max Rank
+
 W = hanning(winSize);
 
+%% =====MANUAL ESSENTIAL-NONESSENTIAL=====
+band_classif = zeros(nTracks, aF);
+for iT=1:nTracks
+    figure(1);
+    showSpectrum(x_original.samples{iT}, fs, fc, string(x_original.fileName{iT}));
+    loop = 1;
+    
+    while loop
+        inp = input("\n - Enter " + string(Rt) + " most essential bands for track \'"+string(x_original.fileName{iT})+"\' separated by ',' (example: \'1,2,9\') (see bands and spectrum in the figure)\n", 's');
+        inp_num = str2double(inp(inp~=','));
+        inp_char = inp(inp~=',');
+        if ~isnan(inp_num) && length(inp_char) == Rt && length(unique(inp_char)) == Rt
+            loop = 0;
+            for i=1:Rt
+                band_classif(iT, str2double(inp_char(i))+1) = 1;
+            end
+        else 
+            fprintf("Invalid input, try again"); 
+        end
+    end
+    
+    
+end
+%%========================================
 
-% EMPTY FRAME VARIABLE
+
+%% EMPTY FRAME VARIABLE
 frame = table(zeros(nTracks, winSize), zeros(nTracks, aF), zeros(nTracks, aF));
 frame.Properties.VariableNames = ["Samples", "MagRes", "Rank"];
 
@@ -60,7 +88,7 @@ frameSamples = cell(nTracks,1);
 frameMagnitudes = zeros(floor(Length/stepL), nTracks, aF);
 frameOverallMagnitudes = zeros(floor(Length/stepL), nTracks);
 
-%% MAIN LOOP: for each frame of size winSize: Compute magnitudes an rankings for each frame
+% MAIN LOOP: for each frame of size winSize: Compute magnitudes an rankings for each frame
 nframe = 1;
 winPos = 1;
 last_t = clock;
@@ -116,7 +144,8 @@ for i_masker= 1:nTracks %for each masker
     for i_maskee = 1:nTracks %compare it with each possible maskee
         if i_masker ~= i_maskee %avoid comparing with itself
             for i_band = 1:aF %per each band
-                if (Rank(i_maskee,i_band) <= Rt) && (Rt < Rank(i_masker, i_band)) && Magnitudes(i_masker,i_band) ~= -Inf && Magnitudes(i_maskee,i_band) ~= -Inf %Equation (1) on reference [1]
+                if band_classif(i_maskee,i_band)==1 && band_classif(i_masker, i_band)==0 ...
+                        && Magnitudes(i_masker,i_band) ~= -Inf && Magnitudes(i_maskee,i_band) ~= -Inf %Equation (1) on reference [1]
                     M{i_masker, i_maskee}(i_band) = Magnitudes(i_masker,i_band) - Magnitudes(i_maskee,i_band);
                 else
                     M{i_masker, i_maskee}(i_band) = 0;

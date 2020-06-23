@@ -95,6 +95,7 @@ public:
     bool isMono(AudioBuffer<float> buffer);
 	double last_gain, post_gain;
 	double gain;
+	double S;
 	bool eq_normalize;
 
 private:

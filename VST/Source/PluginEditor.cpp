@@ -20,10 +20,10 @@ MtequalizerAudioProcessorEditor::MtequalizerAudioProcessorEditor (MtequalizerAud
 
 
 	slider.setSliderStyle(Slider::LinearBarVertical);
-	slider.setRange(0.0, 1.0, 0.001);
+	slider.setRange(0.0, 5.0, 0.001);
 	slider.setTextBoxStyle(Slider::NoTextBox, false, 90, 0);
 	slider.setPopupDisplayEnabled(true, false, this);
-	slider.setTextValueSuffix("Dry/Wet");
+	slider.setTextValueSuffix("S");
 	slider.setValue(1.0);
 	slider.setSliderStyle(Slider::SliderStyle::Rotary);
 	slider.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 15);
@@ -102,14 +102,14 @@ void MtequalizerAudioProcessorEditor::buttonClicked(Button* button) {
 		button->setButtonText(state);
 	}
 	else if (button == &this->plusBut) {
-		if(processor.aF < 10)
-			processor.aF += 1;
+		if(processor.nF < 10)
+			processor.nF += 1;
 	}
 	else if (button == &this->menusBut) {
-		if (processor.aF > 3)
-			processor.aF -= 1;
+		if (processor.nF > 3)
+			processor.nF -= 1;
 	}
-	label.setText("nF =" + std::to_string(processor.aF), dontSendNotification);
+	label.setText("nF =" + std::to_string(processor.nF), dontSendNotification);
 
 
 

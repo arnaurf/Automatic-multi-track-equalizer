@@ -15,8 +15,8 @@ function signal_smr = smr(x, Fs)
     %semilogx(0:(Fs/2)/(N/2):Fs/2-1,A,'b'); % Plot in log scale
 
     % 1kHz signal for SPL normalisation
-    s = sin(2*pi*1000*0:10);
-    S = fft(s);
+    s = sin(2*pi*1000*(0:1/48000:1));
+    S = fft(s,1024);
     fft_max = max(abs(S));
 
     %% 

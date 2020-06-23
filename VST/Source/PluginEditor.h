@@ -46,7 +46,7 @@ private:
 	TextButton button1, plusBut, menusBut;
 	Label label, label2;
 	bool test;
-	Slider slider, slider2;
+	Slider slider, slider2, slider3;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MtequalizerAudioProcessorEditor)
 };
